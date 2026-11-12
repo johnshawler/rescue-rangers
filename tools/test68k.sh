@@ -14,7 +14,7 @@ cc -O1 -w $HOST_CFLAGS $TEST_CFLAGS $HOST_TEST -o out/host_test || exit 1
 vamos -q -C 68020 -m 8192 -s 64 -- "dist/${NAME}68t" "$N" -t > out/t68.txt; echo "vamos exit code $?"
 ./out/host_test "$N" -t > out/tc.txt
 python3 - <<'PY'
-a = [l.split() for l in open('out/t68.txt') if l[:1].isdigit()]
+a = [l.split() for l in open('out/t68.txt', errors='replace') if l[:1].isdigit()]
 c = [l.split() for l in open('out/tc.txt') if l[:1].isdigit()]
 for x, y in zip(a, c):
     if x != y: print('first difference at tick %s: 68k %s, C %s' % (x[0], x[1], y[1])); break

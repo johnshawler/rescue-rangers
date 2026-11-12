@@ -10,7 +10,7 @@
         xref    _cpu_a,_cpu_s,_cpu_x,_cpu_y,_cpu_c,_cpu_z,_cpu_n,_cpu_v,_cpu_i,_cpu_d
 ;       _cpu_x,_cpu_y,_cpu_s,_cpu_c,_cpu_z,_cpu_n,_cpu_v,_cpu_i,_cpu_d
         xref    _nes_ram,_nes_prg_lo,_nes_prg_hi,_nes_prg_data,_ppu_v,_ppu_ctrl,_nes_vram,_nes_dirty,_nes_dirty_flag,_nes_ndirty,_nes_redraw_all,_nes_bank,_mmc_shift,_mmc_chr0,_mmc_chr1,_mmc_ctrl,_mmc_prg,_pad_shift,_pad_strobe,_nes_pad
-        xref    _apu_reg,_apu_trig
+        xref    _apu_reg,_apu_trig,_ppu_w,_ppu_t,_ppu_fx,_ppu_mask,_ppu_oamaddr
         xref    _nes_io_read,_nes_read_s0,_nes_write_slow,_nes_wait,_nes_fatal,_nes_mmc_prg,_nes_mmc_ctrl
 
 ; ---- moving the 6502 state between the globals and the registers
@@ -318,7 +318,62 @@ _io_wr:
         moveq   #32,d3
 .i1     add.w   d3,_ppu_v
         bra     .done
-.nt9    cmpa.l  #$8000,a0               ; MMC1: four of the five serial writes only shift
+.nt9    cmpa.w  #$2006,a0               ; PPU registers $2000 $2001 $2003 $2005: as nes_write_slow() in nes.c
+        bcc     .nt8
+        cmpa.w  #$2000,a0
+        bcs     .nt8
+        move.l  a0,d3
+        sub.w   #$2000,d3
+        beq     .w0
+        subq.w  #1,d3
+        beq     .w1
+        subq.w  #2,d3
+        beq     .w3
+        subq.w  #2,d3
+        bne     .call
+        tst.b   _ppu_w                  ; $2005: x scroll, then y scroll
+        bne.s   .w5y
+        move.w  _ppu_t,d3
+        and.w   #$ffe0,d3
+        moveq   #0,d1
+        move.b  d4,d1
+        lsr.w   #3,d1
+        or.w    d1,d3
+        move.w  d3,_ppu_t
+        and.b   #7,d4
+        move.b  d4,_ppu_fx
+        bra.s   .w5t
+.w5y    move.w  _ppu_t,d3
+        and.w   #$8c1f,d3
+        moveq   #7,d1
+        and.b   d4,d1
+        lsl.w   #8,d1
+        lsl.w   #4,d1
+        or.w    d1,d3
+        moveq   #0,d1
+        move.b  d4,d1
+        and.b   #$f8,d1
+        add.w   d1,d1
+        add.w   d1,d1
+        or.w    d1,d3
+        move.w  d3,_ppu_t
+.w5t    eori.b  #1,_ppu_w
+        bra     .done
+.w0     move.b  d4,_ppu_ctrl            ; $2000: control, nametable bits into t
+        move.w  _ppu_t,d3
+        and.w   #$f3ff,d3
+        moveq   #3,d1
+        and.b   d4,d1
+        lsl.w   #8,d1
+        lsl.w   #2,d1
+        or.w    d1,d3
+        move.w  d3,_ppu_t
+        bra     .done
+.w1     move.b  d4,_ppu_mask
+        bra     .done
+.w3     move.b  d4,_ppu_oamaddr
+        bra     .done
+.nt8    cmpa.l  #$8000,a0               ; MMC1: four of the five serial writes only shift
         bcs     .pad
         btst    #7,d4
         bne     .call

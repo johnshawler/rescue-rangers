@@ -35,7 +35,9 @@ int main(int argc, char **argv)
     for (t = 0; t < n; t++) {
         game_tick(game_bench_input(t));
         if (verbose && (t + 1) % 100 == 0) printf("tick %u checksum %08x frames %u\n", t + 1, (unsigned)game_checksum(), (unsigned)logic_frames);
-        if (every) printf("%u %08x %02x%02x%02x\n", t + 1, (unsigned)game_checksum(), mmc_shift, mmc_prg, mmc_ctrl);
+        if (every) { extern uint8_t ppu_w, ppu_oamaddr;          /* plus state the checksum does not cover */
+            printf("%u %08x %02x%02x%02x %04x%02x%02x%02x%02x%02x%02x\n", t + 1, (unsigned)game_checksum(), mmc_shift, mmc_prg, mmc_ctrl,
+                   ppu_t, ppu_fx, ppu_w, ppu_oamaddr, mmc_chr0, mmc_chr1, apu_trig); }
         if (ramlog) fwrite(nes_ram, 1, sizeof nes_ram, ramlog);
         snprintf(key, sizeof key, ",%u,", t + 1);
         if (dumps) { char list[4096]; snprintf(list, sizeof list, ",%s,", dumps); if (strstr(list, key)) { snprintf(name, sizeof name, "host_%05u.ppm", t + 1); host_render(name); } }
