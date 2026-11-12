@@ -244,26 +244,31 @@ static void build_groups(void)
 {
     int i, j;
     const UBYTE *o = nes_oam;
-    Group *g = 0;
+    WORD gx0 = 0, gx1 = -100, gy0 = 0, gy1 = -100;        /* the open group, in registers; none yet */
+    UBYTE gn = 0, gp3 = 0, gh = 0;
+    Group *g = grp;
     ngrp = 0;
     for (i = 0; i < 64; i++, o += 4) {
-        WORD sy = (WORD)o[0] + 1, x = o[3];
+        WORD sy, x;
         if (o[0] >= 0xef) continue;
-        if (g) {                                    /* a metasprite's sprites come together in OAM */
-            WORD nx0 = x < g->x0 ? x : g->x0, nx1 = x + 8 > g->x1 ? x + 8 : g->x1;
-            if (nx1 - nx0 <= SPR_W && g->n < MAXIN && sy <= g->y1 + 1 && sy + 8 >= g->y0 - 1 && x <= g->x1 + 1 && x + 8 >= g->x0 - 1) {
-                g->x0 = nx0; g->x1 = nx1;
-                if (sy < g->y0) g->y0 = sy;
-                if (sy + 8 > g->y1) g->y1 = (WORD)(sy + 8);
-                spr_next[i] = g->head; g->head = (UBYTE)i; g->n++;
-                if ((o[2] & 3) != 3) g->pal3only = 0;
-                continue;
-            }
+        sy = (WORD)(o[0] + 1); x = o[3];
+        /* a metasprite's sprites come together in OAM: join the open group if touching and within 64 pixels */
+        if (gn && gn < MAXIN && sy <= gy1 + 1 && sy + 8 >= gy0 - 1 && x <= gx1 + 1 && x + 8 >= gx0 - 1
+            && (x + 8 > gx1 ? x + 8 : gx1) - (x < gx0 ? x : gx0) <= SPR_W) {
+            if (x < gx0) gx0 = x;
+            if (x + 8 > gx1) gx1 = (WORD)(x + 8);
+            if (sy < gy0) gy0 = sy;
+            if (sy + 8 > gy1) gy1 = (WORD)(sy + 8);
+            spr_next[i] = gh; gh = (UBYTE)i; gn++;
+            if ((o[2] & 3) != 3) gp3 = 0;
+            continue;
         }
-        g = &grp[ngrp++];
-        g->x0 = x; g->x1 = (WORD)(x + 8); g->y0 = sy; g->y1 = (WORD)(sy + 8); g->n = 1; g->head = g->tail = (UBYTE)i;
-        g->pal3only = (o[2] & 3) == 3;
+        if (gn) { g->x0 = gx0; g->x1 = gx1; g->y0 = gy0; g->y1 = gy1; g->n = gn; g->pal3only = gp3; g->head = gh; g++; ngrp++; }
+        gx0 = x; gx1 = (WORD)(x + 8); gy0 = sy; gy1 = (WORD)(sy + 8); gn = 1; gh = (UBYTE)i;
+        g->tail = (UBYTE)i;
+        gp3 = (o[2] & 3) == 3;
     }
+    if (gn) { g->x0 = gx0; g->x1 = gx1; g->y0 = gy0; g->y1 = gy1; g->n = gn; g->pal3only = gp3; g->head = gh; ngrp++; }
     /* merge groups that touch, while they fit */
     for (i = 0; i < ngrp; i++)
         for (j = i + 1; j < ngrp && j <= i + 6; j++) {   /* neighbours in OAM order only */
@@ -532,7 +537,9 @@ void video_frame(void)
         invalidate();
     }
 
-    VP(1, sync_rows(sy));
+    {   static WORD last_sy = -1; static LONG last_lo, last_hi;      /* the rows' copies depend on sy only */
+        if (sy != last_sy || col_lo != last_lo || col_hi != last_hi) { VP(1, sync_rows(sy)); last_sy = sy; last_lo = col_lo; last_hi = col_hi; }
+    }
 
     /* nametable cells the game wrote (a whole new screen: draw it again column by column) */
     if (nes_ndirty > 200) invalidate();
@@ -546,7 +553,10 @@ void video_frame(void)
     budget = (on && col_lo <= vlo && col_hi >= vhi) ? 24 : 110;
     VP(1, stream_cols(budget));
     if (!(col_lo <= vlo && col_hi >= vhi)) on = 0;
-    if (col_lo <= col_hi) fix_edges();
+    {   static LONG fe_cam = -1, fe_lo, fe_hi; static UBYTE fe_mask;  /* columns cross the edge only when these move */
+        if (col_lo <= col_hi && (cam_ux != fe_cam || col_lo != fe_lo || col_hi != fe_hi || (ppu_mask & 2) != fe_mask)) {
+            fix_edges(); fe_cam = cam_ux; fe_lo = col_lo; fe_hi = col_hi; fe_mask = (UBYTE)(ppu_mask & 2); }
+    }
 
     if (nes_pal_dirty || on != was_on) { set_palette(on); nes_pal_dirty = 0; was_on = (UBYTE)on; }
     disp_scroll(cam_ux - VIEW_X, sy);
