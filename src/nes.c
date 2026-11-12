@@ -172,8 +172,15 @@ static void mmc1(uint16_t a, uint8_t v)
     }
 }
 
+#ifdef IO_LOG                                   /* debug: every write at $2000+ of the current tick (host and 68k tests) */
+uint32_t io_log[IO_LOG]; unsigned io_nlog;
+void io_log_add(uint32_t a, uint32_t v) { if (io_nlog < IO_LOG) io_log[io_nlog++] = (a & 0xffff) << 8 | (v & 0xff); }
+#endif
 void nes_write_slow(uint16_t a, uint8_t v)
 {
+#if defined(IO_LOG) && !defined(__m68k__)
+    io_log_add(a, v);
+#endif
     if (a < 0x4000) {
         switch (a & 7) {
         case 0: ppu_ctrl = v; ppu_t = (uint16_t)((ppu_t & 0xf3ff) | ((v & 3) << 10)); break;

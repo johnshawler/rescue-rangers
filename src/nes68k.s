@@ -229,6 +229,7 @@ _io_wr_d2:
         movem.l d0-d1/a0-a1,-(sp)
         moveq   #0,d4
         move.b  d2,d4
+        bra     _io_wr                  ; (it fell through into _set_prg: found by the Rescue Rangers port)
 _set_prg:                               ; d4 = new MMC1 PRG register: as five serial writes would leave it
         move.w  ccr,-(sp)
         move.b  _mmc_ctrl,d3
@@ -271,7 +272,16 @@ _io_wr_d4:
         move.w  ccr,-(sp)
         movem.l d0-d1/a0-a1,-(sp)
         and.l   #$ff,d4
-_io_wr: cmpa.w  #$2007,a0               ; PPU data port: nametable writes done here, as vram_write() in nes.c
+_io_wr:
+        ifd     IO_LOG                  ; debug: log the write (src/nes.c io_log_add)
+        movem.l d0-d1/d4/a0-a1,-(sp)
+        move.l  d4,-(sp)
+        move.l  a0,-(sp)
+        jsr     _io_log_add
+        addq.l  #8,sp
+        movem.l (sp)+,d0-d1/d4/a0-a1
+        endif
+        cmpa.w  #$2007,a0               ; PPU data port: nametable writes done here, as vram_write() in nes.c
         bne     .nt9
         move.b  _mmc_ctrl,d3
         and.b   #3,d3
@@ -348,8 +358,12 @@ _rd_ea: cmpa.l  #$c000,a0
         andi.w  #$7ff,d4
         move.b  -$80(a5,d4.w),d4
         rts
-.fix    move.b  (-$c000,a4,a0.l),d4
+.fix    cmpa.l  #$10000,a0
+        bcc.s   .wrap
+        move.b  (-$c000,a4,a0.l),d4
         rts
+.wrap   suba.l  #$10000,a0              ; abs,y and (zp),y past $FFFF wrap to the zero page
+        bra.s   _rd_ea
 .sw     move.b  (-$8000,a3,a0.l),d4
         rts
 _wr_ea_d4:                              ; read-modify-write: a0 = address, d4 = value, flags already set
@@ -361,29 +375,46 @@ _wr_ea_d4:                              ; read-modify-write: a0 = address, d4 = 
         move.b  d4,-$80(a5,d3.w)
         move.w  (sp)+,ccr
         rts
-.io     move.w  (sp)+,ccr
+.io     cmpa.l  #$10000,a0              ; past $FFFF (abs,x / (zp),y): wraps to the zero page
+        bcs.s   .io2
+        suba.l  #$10000,a0
+        move.w  (sp)+,ccr
+        bra     _wr_ea_d4
+.io2    move.w  (sp)+,ccr
         bra     _io_wr_d4
 _wr_ea_d0:
         cmpa.l  #$2000,a0
-        bcc     _io_wr_d0
+        bcc.s   .hi
         move.l  a0,d4
         andi.w  #$7ff,d4
         move.b  d0,-$80(a5,d4.w)
         rts
+.hi     cmpa.l  #$10000,a0              ; past $FFFF: wraps to the zero page
+        bcs     _io_wr_d0
+        suba.l  #$10000,a0
+        bra     _wr_ea_d0
 _wr_ea_d1:
         cmpa.l  #$2000,a0
-        bcc     _io_wr_d1
+        bcc.s   .hi
         move.l  a0,d4
         andi.w  #$7ff,d4
         move.b  d1,-$80(a5,d4.w)
         rts
+.hi     cmpa.l  #$10000,a0              ; past $FFFF: wraps to the zero page
+        bcs     _io_wr_d1
+        suba.l  #$10000,a0
+        bra     _wr_ea_d1
 _wr_ea_d2:
         cmpa.l  #$2000,a0
-        bcc     _io_wr_d2
+        bcc.s   .hi
         move.l  a0,d4
         andi.w  #$7ff,d4
         move.b  d2,-$80(a5,d4.w)
         rts
+.hi     cmpa.l  #$10000,a0              ; past $FFFF: wraps to the zero page
+        bcs     _io_wr_d2
+        suba.l  #$10000,a0
+        bra     _wr_ea_d2
 
 ; ---- the status register
 _php:   move.w  ccr,-(sp)

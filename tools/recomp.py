@@ -27,7 +27,7 @@ from op6502 import decode
 # the per-game knowledge (tools/games/<name>.py): --game <name> as the first arguments
 import importlib
 args = sys.argv[1:]
-gamename = 'llb'
+gamename = 'rr'
 if args[0] == '--game': gamename, args = args[1], args[2:]
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), 'games'))
 game = importlib.import_module(gamename)

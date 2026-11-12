@@ -72,6 +72,9 @@ void game_tick(unsigned short in)
     if (in & IN_LEFT) p |= 0x40;
     if (in & IN_RIGHT) p |= 0x80;
     nes_pad = p;
+#ifdef IO_LOG
+    { extern unsigned io_nlog; io_nlog = 0; }
+#endif
 #ifdef LOGIC_TRACE
     {   uint32_t t0 = logic_clock ? logic_clock() : 0;
         co_resume();

@@ -2,6 +2,7 @@
  * the game-state checksum. Build: cc -Isrc src/host_test.c src/logic.c src/nes.c src/coro_host.c src/gen_*.c
  *   host_test N            print the checksum after N ticks
  *   host_test N -v         also print the checksum every 100 ticks (to find the first tick that differs)
+ *   host_test N -t         also print the checksum after every tick (compare with tools/debug_run.sh's trace.bin)
  *   host_test N -r file    also write NES RAM after every tick to file (for tools/verify)
  *   host_test N -d t1,t2   also write the picture after these ticks as host_NNNNN.ppm (host_render.c)
  */
@@ -24,7 +25,7 @@ static void load(const char *name, uint8_t *dst)
 int main(int argc, char **argv)
 {
     unsigned n = argc > 1 ? (unsigned)atoi(argv[1]) : 3000, t;
-    int verbose = argc > 2 && !strcmp(argv[2], "-v");
+    int verbose = argc > 2 && !strcmp(argv[2], "-v"), every = argc > 2 && !strcmp(argv[2], "-t");
     FILE *ramlog = (argc > 3 && !strcmp(argv[2], "-r")) ? fopen(argv[3], "wb") : 0;
     const char *dumps = (argc > 3 && !strcmp(argv[2], "-d")) ? argv[3] : 0;   /* -d 100,200,... : frames as PPM */
     char key[32], name[64];
@@ -34,12 +35,17 @@ int main(int argc, char **argv)
     for (t = 0; t < n; t++) {
         game_tick(game_bench_input(t));
         if (verbose && (t + 1) % 100 == 0) printf("tick %u checksum %08x frames %u\n", t + 1, (unsigned)game_checksum(), (unsigned)logic_frames);
+        if (every) printf("%u %08x %02x%02x%02x\n", t + 1, (unsigned)game_checksum(), mmc_shift, mmc_prg, mmc_ctrl);
         if (ramlog) fwrite(nes_ram, 1, sizeof nes_ram, ramlog);
         snprintf(key, sizeof key, ",%u,", t + 1);
         if (dumps) { char list[4096]; snprintf(list, sizeof list, ",%s,", dumps); if (strstr(list, key)) { snprintf(name, sizeof name, "host_%05u.ppm", t + 1); host_render(name); } }
     }
-    if (nes_fatal_why) fprintf(stderr, "STOPPED: reason %d at %04x\n", nes_fatal_why, nes_fatal_pc);
+    if (nes_fatal_why) fprintf(stderr, "STOPPED: reason %d at %04x (bank %d, mmc prg %02x shift %02x, ram f1 %02x f4 %02x f5 %02x)\n", nes_fatal_why, nes_fatal_pc, nes_bank, mmc_prg, mmc_shift, nes_ram[0xf1], nes_ram[0xf4], nes_ram[0xf5]);
     if (ramlog) fclose(ramlog);
+#ifdef IO_LOG
+    { extern uint32_t io_log[]; extern unsigned io_nlog; unsigned i;     /* the last tick's I/O writes */
+      for (i = 0; i < io_nlog; i++) printf("W %04x %02x\n", (unsigned)(io_log[i] >> 8), (unsigned)(io_log[i] & 0xff)); }
+#endif
     printf("ticks=%u checksum=%08x\n", n, (unsigned)game_checksum());
     return 0;
 }

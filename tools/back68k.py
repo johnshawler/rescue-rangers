@@ -380,7 +380,7 @@ def generate(g):
                     L.append('cmp.b %s,%s' % (op, r)); c68 = 'inv'; keep_c = True
                     if can_fuse: fuse = nxt
                 else:
-                    L += ['move.b %s,d4' % r, 'sub.b %s,d4' % op, 'eori.b #$10,ccr']; c68 = 'inv'
+                    L += ['move.b %s,d7' % r, 'sub.b %s,d7' % op, 'eori.b #$10,ccr']; c68 = 'inv'   # d7: op may be d4
                 nzsrc = None
             elif m == 'BIT':
                 pre, op, _ = operand(mode, arg, a in s0)

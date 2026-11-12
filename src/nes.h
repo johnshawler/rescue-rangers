@@ -44,7 +44,7 @@ extern uint8_t nes_pal[32];
 extern uint8_t nes_oam[256];
 extern uint8_t ppu_ctrl, ppu_mask, ppu_fx;
 extern uint16_t ppu_t;
-extern uint8_t mmc_ctrl, mmc_chr0, mmc_chr1, mmc_prg;
+extern uint8_t mmc_ctrl, mmc_chr0, mmc_chr1, mmc_prg, mmc_shift;
 extern uint8_t ppu_vbl;                 /* vertical blank flag, as read from $2002 */
 
 /* What changed since the display last looked (the display clears these). */
