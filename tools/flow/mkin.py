@@ -2,11 +2,11 @@ import random, sys
 # mkin.py mode frames seed: mode 1p | watch
 mode, n, seed = sys.argv[1], int(sys.argv[2]), int(sys.argv[3]); r = random.Random(seed)
 if mode == 'rrplay':    # the same buttons as src/bench_play.h (BENCH_PLAY), for tools/nesref traces
-    names = {1: 'RIGHT', 2: 'LEFT', 4: 'DOWN', 8: 'UP', 16: 'A', 32: 'B', 64: 'START', 128: 'SELECT'}
-    pick = [1, 1 | 16, 1, 32, 2, 8, 4, 4 | 32, 16, 1 | 32, 2 | 16, 0]
+    names = {1: 'RIGHT', 2: 'LEFT', 4: 'DOWN', 8: 'UP', 16: 'B', 32: 'A', 64: 'START', 128: 'SELECT'}
+    pick = [1, 1 | 32, 1, 16, 2, 8, 4, 4 | 16, 32, 1 | 16, 2 | 32, 0]
     def bp(t):
         if 320 <= t <= 325 or 450 <= t <= 455: return 64
-        if 500 <= t < 900: return 16 if t % 20 < 3 else 0
+        if 500 <= t < 900: return 32 if t % 20 < 3 else 0
         if t < 950: return 0
         r = ((t // 24) * 1103515245 + 12345) & 0xffffffff
         return pick[(r >> 16) % 12]

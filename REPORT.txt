@@ -44,5 +44,5 @@ Not done, not tested:  real A1200 hardware; a Commodore Kickstart ROM (the user 
 How to run:            put the ROM at original/rr.nes (see original/README.md for the file and its SHA-1), run
                        tools/make_assets.sh, then tools/port.sh (or tools/build.sh with the SOURCES line of
                        port.conf). Copy dist/rr to the Amiga and run "rr" from a Shell ("rr bench 3000" for the proof
-                       run). Joystick in port 2: stick = pad, fire = A (jump), second fire = B (pick up / throw).
+                       run). Joystick in port 2: stick = pad, button 1 = B (pick up / throw), button 2 = A (jump).
                        Keys: cursor keys = pad, X = A, Z or Alt = B, Space = Select, Return/Enter = Start, Esc = quit.

@@ -138,7 +138,7 @@ static unsigned short bench_input(unsigned int t)      /* copy of game_bench_inp
 static uint8_t pad_of(unsigned short in)
 {
     uint8_t p = 0;
-    if (in & 16) p |= 1; if (in & 32) p |= 2; if (in & 128) p |= 4; if (in & 64) p |= 8;
+    if (in & 32) p |= 1; if (in & 16) p |= 2; if (in & 128) p |= 4; if (in & 64) p |= 8;
     if (in & 8) p |= 0x10; if (in & 4) p |= 0x20; if (in & 2) p |= 0x40; if (in & 1) p |= 0x80;
     return p;
 }

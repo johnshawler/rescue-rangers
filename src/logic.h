@@ -8,13 +8,13 @@
 #define IN_LEFT   2
 #define IN_DOWN   4
 #define IN_UP     8
-#define IN_A      16            /* fire */
-#define IN_B      32            /* second fire */
+#define IN_B      16            /* fire (button 1) = NES B: pick up / throw */
+#define IN_A      32            /* second fire (button 2) = NES A: jump */
 #define IN_START  64
 #define IN_SELECT 128
 
 void game_init(void);                           /* before the first tick: ROM pointers, the coroutine */
-void game_tick(unsigned short input);           /* one NES frame (1/60 s) of game logic */
+void game_tick(unsigned short input);           /* one NES frame (1/50 s, PAL) of game logic */
 unsigned short game_bench_input(unsigned int tick);
 uint32_t game_checksum(void);
 
