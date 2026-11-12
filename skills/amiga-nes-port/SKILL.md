@@ -30,8 +30,10 @@ each port starts from zero.
 ## During the port
 
 - Follow the playbook's first-day checklist and `PIPELINE.md`: reference emulator, **measure the load per scene
-  and give the verdict before writing code**, trace, translate, prove tick by tick, then Amiga checksum, then
-  profile (1 kHz profiler, busiest scene only), then display on the host harness, then sound.
+  and give the verdict before writing code** (check PAL/NTSC in the header first), trace long, translate, prove
+  tick by tick (C against the interpreter, then the 68k code on the host with `tools/test68k.sh`), then the
+  Amiga checksum, then profile (1 kHz profiler, busiest passage only), then display on the host harness, then
+  sound.
 - Put game-specific knowledge in `tools/games/<game>.py`, nowhere else in the tools.
 - When something general is learned (a new idiom, a mapper, a pitfall, a better number), write it down at once
   in the playbook section it belongs to; don't wait for the end.

@@ -40,7 +40,7 @@ PIPELINE.md, NOTES.md and the git log first, then carry on from the last commit"
 
 ## What to expect
 
-- Supported now: MMC1 boards with 128 KB PRG + 128 KB CHR, background tile-set splits, hardware-sprite
-  multiplexing, the APU on Paula. Other boards and scroll splits are new work (PLAYBOOK-NES.md section 8).
+- Supported now: MMC1 boards with 128 KB PRG + 128 KB CHR, NTSC and PAL games, cooperative task schedulers,
+  background tile-set splits, hardware-sprite multiplexing, the APU (no DMC) on Paula. Other boards and scroll splits are new work (PLAYBOOK-NES.md section 8).
 - 50 Hz depends on how busy the original keeps the NES CPU; the session measures it on day one.
 - A port takes many hours, possibly several sessions.

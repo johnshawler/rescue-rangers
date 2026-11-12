@@ -33,6 +33,9 @@ resets the per-game files and keeps everything reusable. The Claude skill in `sk
 3. **Measure the load before anything else**: `WAITPCS=<wait loop addresses> nesref -s` gives 6502 instructions
    per frame outside wait loops. Do it per scene. Then the verdict (section 6). Write it in the feasibility note.
 4. Trace (`nesref -c`) attract, self-play and random input; `tools/recomp.py --game <game>` → C and 68k.
+   Trace **long** (tens of thousands of frames, attract and scripted play to game over): code that no trace
+   reached stops the port with "STOPPED: reason 3" the first time a player gets there. Run the host test for
+   60,000 ticks of each input and check it never prints STOPPED.
 5. `tools/nesref/verify.c` against the host test, tick by tick (NES RAM). Then **`tools/test68k.sh`**: the 68k
    translation against the C one, tick by tick, on the host (vamos: `pip install amitools machine68k greenlet`),
    for the attract bench and for `TEST_CFLAGS=-DBENCH_PLAY` (the attract demo never presses a button). Seconds per
@@ -113,8 +116,9 @@ Add the display (Little League Baseball, 4 MB, field play: 25–35k per frame wi
 Rescue Rangers, 4 MB, after the display work: 20–25k per frame with up to 59 sprites).
 Say the verdict in the report from the start; name the upgrade.
 
-Measured after the work on the second port (Rescue Rangers, PAL, 5,000–7,500 6502 instructions a frame in play):
-about 4 colour clocks per 6502 instruction on 4 MB fast RAM and about 7 on the stock machine. With PAL's one tick
+Measured after the work on the second port (Rescue Rangers, PAL, 6,480 6502 instructions a frame on average in the
+attract-demo gameplay): logic 23k colour clocks a tick on 4 MB fast RAM and 36k on the stock machine, about 3.5 and
+5.6 colour clocks per 6502 instruction. With PAL's one tick
 a frame that was 49.1 fps on 4 MB and 36.3 on stock; the table above is the pessimistic first estimate.
 
 ## 7. Display and sound recipes
@@ -156,3 +160,21 @@ sections above if a lesson is general.
 - Biggest wins were I/O plumbing found by the profiler (OAM DMA, controller, MMC1, PPU writes), not game logic.
 - Next time: measure the load on day one (it decided the outcome); build the 1 kHz profiler before optimising
   anything; don't trust static cost estimates; write the display on the host harness first.
+
+### 2. Chip 'n Dale: Rescue Rangers (Capcom 1990, Europe/PAL), MMC1, 2026-11
+
+- Load: title 1,300-2,300; attract-demo gameplay 4,700-7,500 6502 instructions per frame (PAL: one tick a frame);
+  level loading up to 11,000 with the screen off. Verdict before code: stock no, 4 MB borderline.
+- Result: 36.3 fps stock, 49.1 fps with 4 MB fast RAM (52 late frames in 3,000, mostly screen builds); checksum
+  equal; 68k = C = interpreter tick by tick for 30,000 ticks of two inputs. tools/port.sh FAIL on both.
+- New: PAL support (nesref timing from the header, `NES_PAL` sound clock); a cooperative task scheduler with
+  per-task stacks (`WAITS` for a JMP-closed idle loop that writes RAM, `SCHEDULER` and `INDIRECT_BREAKS_CHAIN`
+  return-point entries); `SPLIT` to hand-write a loop in the middle of a function; `tools/test68k.sh` (the
+  Amiga's 68k code on the host under vamos, seconds instead of minutes); three latent run-time/back-end bugs
+  fixed (STY to I/O, CMP through a helper, no 16-bit address wrap); sprite reuse in place, shape pool, CHR-bank
+  aware sprite cache; `tools/prof.py`; `IO_LOG`, `BENCH_PLAY`, `VP_LO/VP_HI` debug builds.
+- Biggest wins: again I/O plumbing first (bank-switch routines, controller, OAM, APU/PPU writes), then the one
+  game loop that runs per NES sprite, then not redoing display work that did not change.
+- Next time: run `tools/test68k.sh` before the first FS-UAE run (it would have found the hang in seconds); trace
+  long scripted play from day one; read the header for PAL before anything else; profile the busiest passage
+  with `VP_LO/VP_HI`, and look for catch-up runs (late frames every other tick) rather than averages.

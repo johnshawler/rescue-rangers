@@ -16,28 +16,30 @@ Cut from the original: sprite-behind-background priority (sprites always in fron
                        find no free hardware sprite are dropped (53 in 3000 frames on the host harness).
                        Sound is in: the NES APU (2 pulse, triangle, noise; the game uses no DMC) modelled on Paula
                        with the PAL clock.
-Stock A1200 bench:     frames=2188 late=817 worst_cck=853338 avg_cck=55761 budget_cck=71051 worst_pct=1201 avg_pct=78 display_hz=50 shown_fps=36.4
+Stock A1200 bench:     frames=2183 late=822 worst_cck=853319 avg_cck=55727 budget_cck=71051 worst_pct=1200 avg_pct=78 display_hz=50 shown_fps=36.3
                        ticks=3000 checksum=26d72061  (FS-UAE 3.1.66, tools/port.sh, AROS ROM)
-With 4 MB fast RAM:    frames=2947 late=53 worst_cck=499284 avg_cck=28848 budget_cck=71051 worst_pct=702 avg_pct=40 display_hz=50 shown_fps=49.1
+With 4 MB fast RAM:    frames=2948 late=52 worst_cck=496480 avg_cck=28812 budget_cck=71051 worst_pct=698 avg_pct=40 display_hz=50 shown_fps=49.1
                        ticks=3000 checksum=26d72061  (tools/port.sh fast)
 Host checksum:         26d72061 after 3000 ticks  equal
-                       Also checked: the 68k translation equals the C one after every tick for 20,000 ticks of the bench
-                       and 8,000 ticks of scripted play (tools/test68k.sh, under vamos), and the C translation equals an
-                       instruction-by-instruction interpreter (tools/nesref/verify.c) on NES RAM after every tick for
-                       20,000 and 8,000 ticks.
-Frame rate claim:      36.4 fps shown on the stock A1200, 49.1 fps with 4 MB fast RAM; logic at 50 ticks a second (one
+                       Also checked: the 68k translation equals the C one after every tick for 30,000 ticks of the bench
+                       input and 30,000 ticks of scripted play (tools/test68k.sh, under vamos), and the C translation
+                       equals an instruction-by-instruction interpreter (tools/nesref/verify.c) on NES RAM after every
+                       tick for the same 30,000 + 30,000 ticks. 60,000 ticks of the attract demo (it visits other
+                       levels) run without reaching untranslated code.
+Frame rate claim:      36.3 fps shown on the stock A1200, 49.1 fps with 4 MB fast RAM; logic at 50 ticks a second (one
                        PAL NES frame per tick; game time follows the clock). 50 Hz NOT held: tools/port.sh prints FAIL
                        on both. On 4 MB the late frames are the start-up and level-start screen builds (the game draws
-                       its new screen over several frames with the picture off; the worst frame, 702%, is one of these)
-                       and short catch-up runs in the busiest passages. On the stock machine the logic alone is about
-                       35-45k colour clocks a tick in gameplay: 50 Hz there is out of reach by translation, as the load
+                       its new screen over several frames with the picture off; the worst frame, 698%, is one of these)
+                       and short catch-up runs in the busiest passages. On the stock machine the logic alone is 36k colour
+                       clocks a tick on average in gameplay (p90 44k; debug build, tools/debug_run.sh): 50 Hz there is out of reach by translation, as the load
                        measurement said before any code was written.
                        Cheapest upgrade: 4 MB fast RAM (49.1 fps measured). A 68030 accelerator: not measured.
 Not done, not tested:  real A1200 hardware; a Commodore Kickstart ROM (the user supplied Kickstart 3.1; it was not used:
                        the kit's bench boots the AROS ROM); NTSC machines; the sound by ear (checked as a WAV from
                        tools/shost.c and as register activity, not listened to); interactive play by a person (the
                        controls are wired as in the first port and the scripted-play input reaches gameplay, but no
-                       one has played it); any level but the first (neither scripted input gets further); CI (the ROM
+                       one has played it); play beyond the first level (the bench covers level 1; the attract demo's other levels were checked
+                       for equal state but not benched or looked at on the emulator); CI (the ROM
                        cannot be committed to this public repository).
 How to run:            put the ROM at original/rr.nes (see original/README.md for the file and its SHA-1), run
                        tools/make_assets.sh, then tools/port.sh (or tools/build.sh with the SOURCES line of

@@ -13,7 +13,7 @@ numbers. The general part is folded into `PLAYBOOK-NES.md`; the brief's gaps are
   second, so one NES frame is one Amiga frame. That alone gives each tick 17% more time than an NTSC game's.
 - Load (6502 instructions a frame outside the idle loop): title 1,300-2,300, attract-demo gameplay 4,700-7,500,
   level loading up to 11,000 with the screen off. The verdict written before code: stock no (50k-100k of logic
-  against a 57k gate), 4 MB fast RAM borderline. It ended at 36.4 fps stock and 49.1 fps on 4 MB.
+  against a 57k gate), 4 MB fast RAM borderline. It ended at 36.3 fps stock and 49.1 fps on 4 MB.
 - The attract demo is a good bench: from tick ~950 both chipmunks play level 1 for minutes with no input,
   scrolling both ways, with up to 59 of the 64 NES sprites on screen.
 
@@ -60,7 +60,8 @@ hangs.
 | Linked-list sprite grouping, shape pool, cheaper signature, dead-carry peephole | 31.1 | 48.2 | display 26.6k -> 21-22k |
 | Metasprite emission loop (bank 5 `$8193`, split off with `SPLIT`) by hand | | | logic in the busiest passage 29.0k -> 24.5k |
 | Grouping in registers; row/edge checks only when the scroll moved | 36.3 | 49.1 | display in the busiest passage 27k -> 24.4k |
-| PPU register writes in assembly | 36.4 | 49.1 | (final referee run) |
+| PPU register writes in assembly | 36.4 | 49.1 | |
+| Longer traces (more entries; same logic) | 36.3 | 49.1 | final referee run (`tools/port.sh`, `tools/port.sh fast`) |
 
 - Again the I/O plumbing paid first: bank switches (30 serial mapper writes a tick), the controller, OAM and APU
   writes. Then one game loop that runs once per NES sprite.
