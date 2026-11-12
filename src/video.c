@@ -242,7 +242,7 @@ static void build_groups(void)
         UBYTE y = nes_oam[i * 4], x = nes_oam[i * 4 + 3];
         WORD sy = (WORD)y + 1;
         if (y >= 0xef) continue;
-        for (j = ngrp > 4 ? ngrp - 4 : 0; j < ngrp; j++) {   /* a metasprite's sprites come together in OAM */
+        for (j = ngrp > 1 ? ngrp - 1 : 0; j < ngrp; j++) {   /* a metasprite's sprites come together in OAM */
             Group *g = &grp[j];
             WORD nx0 = x < g->x0 ? x : g->x0, nx1 = x + 8 > g->x1 ? x + 8 : g->x1;
             if (nx1 - nx0 > SPR_W || g->n >= MAXIN) continue;

@@ -9,6 +9,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "nes.h"
+#include "bench_play.h"
 
 uint8_t nes_prg_data[0x20000], nes_chr_data[0x20000];
 void nes_wait(int kind, uint16_t pc) { (void)kind; (void)pc; }
@@ -126,6 +127,9 @@ static int step(void)
 
 static unsigned short bench_input(unsigned int t)      /* copy of game_bench_input() in src/logic.c */
 {
+#ifdef BENCH_PLAY
+    return bench_play(t);
+#endif
     /* BENCH INPUT BEGIN (per game: tools/new_port.sh resets it) */
     (void)t;      /* no input: the attract demo (from tick ~950) plays level 1 with both players, scrolling both ways */
     /* BENCH INPUT END */

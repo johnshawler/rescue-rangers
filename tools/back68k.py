@@ -217,7 +217,13 @@ def generate(g):
             if arg >= 0x8000 and arg + 255 < 0xc000: return [], '(%d,a3,%s.w)' % (arg - 0x8000, r), False
             return ['movea.l #$%04x,a0' % arg, 'adda.l %s,a0' % r, 'bsr _rd_ea'], 'd4', True
         if mode == 'izy':
-            return ['moveq #0,d7', 'move.w %d(a5),d7' % (arg - 0x80), 'rol.w #8,d7', 'movea.l d7,a0', 'adda.l d2,a0', 'bsr _rd_ea'], 'd4', True
+            # inline ROM fast path: the pointer sign-extended makes $8000-$FFFF negative (a carry past $FFFF wraps
+            # to the zero page by itself); RAM and I/O go to the helper. Nothing here touches the X flag.
+            lo_, fx_, dn_ = newstub(), newstub(), newstub()
+            return ['move.w %d(a5),d7' % (arg - 0x80), 'rol.w #8,d7', 'movea.w d7,a0', 'adda.l d2,a0', 'move.l a0,d7',
+                    'bpl.s %s' % lo_, 'cmpa.w #$c000,a0', 'bcc.s %s' % fx_, 'move.b ($8000,a3,a0.l),d4', 'bra.s %s' % dn_,
+                    '%s:' % fx_, 'move.b ($4000,a4,a0.l),d4', 'bra.s %s' % dn_,
+                    '%s:' % lo_, 'bsr _rd_ea', '%s:' % dn_], 'd4', True
         if mode == 'izx':
             return ['lea %d(a5,d1.w),a0' % (arg - 0x80), 'moveq #0,d7', 'move.w (a0),d7', 'rol.w #8,d7', 'movea.l d7,a0', 'bsr _rd_ea'], 'd4', True
         raise ValueError(mode)

@@ -10,6 +10,7 @@
 #include "coro.h"
 #include "logic.h"
 #include "run.h"
+#include "bench_play.h"
 
 extern const uint8_t nes_prg_data[];            /* 128 KB PRG ROM: assets/prg.bin */
 extern const uint8_t nes_chr_data[];            /* 128 KB CHR ROM: assets/chr.bin */
@@ -96,10 +97,13 @@ void game_tick(unsigned short in)
 #endif
 }
 
-/* Bench: "Exhibition mode, watch game" (computer against computer), then a tap on A every 128 ticks to get
-   through the screens between plays. It plays pitches, hits and fielding: the busiest scenes. */
+/* Bench: the attract demo (no input). From tick ~950 Chip and Dale play level 1 by themselves, scrolling right
+   and up past enemies and crates: the busiest scenes of the self-playing modes. -DBENCH_PLAY: src/bench_play.h. */
 unsigned short game_bench_input(unsigned int t)
 {
+#ifdef BENCH_PLAY
+    return bench_play(t);
+#endif
     /* BENCH INPUT BEGIN (per game: tools/new_port.sh resets it) */
     (void)t;      /* no input: the attract demo (from tick ~950) plays level 1 with both players, scrolling both ways */
     /* BENCH INPUT END */

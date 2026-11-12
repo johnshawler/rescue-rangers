@@ -10,6 +10,7 @@
         xref    _cpu_a,_cpu_s,_cpu_x,_cpu_y,_cpu_c,_cpu_z,_cpu_n,_cpu_v,_cpu_i,_cpu_d
 ;       _cpu_x,_cpu_y,_cpu_s,_cpu_c,_cpu_z,_cpu_n,_cpu_v,_cpu_i,_cpu_d
         xref    _nes_ram,_nes_prg_lo,_nes_prg_hi,_nes_prg_data,_ppu_v,_ppu_ctrl,_nes_vram,_nes_dirty,_nes_dirty_flag,_nes_ndirty,_nes_redraw_all,_nes_bank,_mmc_shift,_mmc_chr0,_mmc_chr1,_mmc_ctrl,_mmc_prg,_pad_shift,_pad_strobe,_nes_pad
+        xref    _apu_reg,_apu_trig
         xref    _nes_io_read,_nes_read_s0,_nes_write_slow,_nes_wait,_nes_fatal,_nes_mmc_prg,_nes_mmc_ctrl
 
 ; ---- moving the 6502 state between the globals and the registers
@@ -331,7 +332,32 @@ _io_wr:
 .m1     move.b  d3,_mmc_shift
         bra     .done
 .pad    cmpa.w  #$4016,a0               ; controller strobe
-        bne     .call
+        beq.s   .pad1
+        cmpa.w  #$4018,a0               ; APU registers $4000-$4013, $4015: as nes_write_slow() in nes.c
+        bcc     .call
+        cmpa.w  #$4000,a0
+        bcs     .call
+        cmpa.w  #$4014,a0               ; OAM DMA: in C
+        beq     .call
+        move.l  a0,d3
+        sub.w   #$4000,d3
+        lea     _apu_reg,a1
+        move.b  d4,(a1,d3.w)
+        cmp.w   #$10,d3
+        bcc.s   .a15
+        moveq   #3,d4
+        and.b   d3,d4
+        cmp.b   #3,d4                   ; a length/period high write (re)starts the channel
+        bne     .done
+        lsr.w   #2,d3
+        lea     _apu_trig,a1
+        bset    d3,(a1)
+        bra     .done
+.a15    cmp.w   #$15,d3
+        bne     .done
+        bset    #4,_apu_trig
+        bra     .done
+.pad1
         move.b  d4,d3
         and.b   #1,d3
         move.b  d3,_pad_strobe
