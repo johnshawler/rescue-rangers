@@ -82,6 +82,6 @@ int main(int argc, char **argv)
         snprintf(key, sizeof key, ",%u,", t + 1);
         if (strstr(list, key)) { snprintf(name, sizeof name, "vhost_%05u.ppm", t + 1); shot(name); }
     }
-    printf("sprite clusters dropped: %d\n", video_sprites_dropped);
+    { extern ULONG video_cache_hits, video_cache_misses, video_slot_hits; printf("sprite clusters dropped: %d, segments in place %lu, from the cache %lu, drawn %lu\n", video_sprites_dropped, (unsigned long)video_slot_hits, (unsigned long)video_cache_hits, (unsigned long)video_cache_misses); }
     return 0;
 }

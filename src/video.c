@@ -232,6 +232,7 @@ static Chan chan[4];                    /* 0..2: attached pairs (sprites 0/1, 2/
 static UBYTE *spr_mem[2][7];            /* two sets of sprite lists, swapped every frame */
 static int spr_set;
 int video_sprites_dropped;
+ULONG video_cache_hits, video_cache_misses;   /* sprite segments copied / drawn (tools/vhost.c prints them) */
 
 static void build_groups(void)
 {
@@ -337,7 +338,8 @@ static int ncache[2];
 
 static ULONG group_sig(Group *g, int with_o)
 {
-    ULONG h = (ULONG)g->n * 0x9e3779b1UL ^ (ULONG)(g->y1 - g->y0) ^ ((ULONG)with_o << 31);
+    ULONG h = (ULONG)g->n * 0x9e3779b1UL ^ (ULONG)(g->y1 - g->y0) ^ ((ULONG)with_o << 31)
+            ^ ((ULONG)mmc_chr0 << 8) ^ ((ULONG)mmc_chr1 << 16) ^ ((ULONG)(ppu_ctrl & 0x08) << 20);   /* the tile set */
     int k;
     for (k = 0; k < g->n; k++) {
         int i = g->idx[k];
@@ -355,6 +357,13 @@ static void copy_lines(UBYTE *d, const UBYTE *s, int n)
     for (n >>= 4; n; n--) { l[0] = m[0]; l[1] = m[1]; l[2] = m[2]; l[3] = m[3]; l += 4; m += 4; }
 }
 
+/* What each segment slot of each sprite list held when that set was last built (two frames ago): a segment
+   with the same content at the same place is already there, and is neither drawn nor copied. */
+typedef struct { ULONG sig; UWORD n, off; } Slot;
+static Slot slots[2][4][NSEG];
+static UBYTE nslots[2][4];
+ULONG video_slot_hits;
+
 static void build_sprites(void)
 {
     int k, s, n;
@@ -365,7 +374,7 @@ static void build_sprites(void)
         Chan *c = &chan[k];
         int ne = k < 3 ? k * 2 : 6, no = k < 3 ? k * 2 + 1 : -1;
         UBYTE *e = spr_mem[spr_set][ne], *o = no >= 0 ? spr_mem[spr_set][no] : 0;
-        if (!c->n) { disp_sprite_off((UWORD)ne); if (no >= 0) disp_sprite_off((UWORD)no); continue; }
+        if (!c->n) { disp_sprite_off((UWORD)ne); if (no >= 0) disp_sprite_off((UWORD)no); nslots[spr_set][k] = 0; continue; }
         for (s = 0; s < c->n; s++) {
             Group *g = c->seg[s];
             WORD x = (WORD)(g->x0 + VIEW_X), y = g->y0, h = (WORD)(g->y1 - g->y0);
@@ -381,12 +390,18 @@ static void build_sprites(void)
             }
             {   ULONG sig = group_sig(g, o != 0);
                 Cached *cp = cache[spr_set ^ 1], *hit = 0;
-                int j;
-                for (j = 0; j < ncache[spr_set ^ 1]; j++) if (cp[j].sig == sig && cp[j].n == n) { hit = &cp[j]; break; }
-                if (hit) {
+                Slot *sl = &slots[spr_set][k][s];
+                UWORD off = (UWORD)(e - spr_mem[spr_set][ne]);
+                int j, same = s < nslots[spr_set][k] && sl->sig == sig && sl->n == n && sl->off == off;
+                sl->sig = sig; sl->n = (UWORD)n; sl->off = off;
+                if (!same) for (j = 0; j < ncache[spr_set ^ 1]; j++) if (cp[j].sig == sig && cp[j].n == n) { hit = &cp[j]; break; }
+                if (same) video_slot_hits++;
+                else if (hit) {
+                    video_cache_hits++;
                     copy_lines(e + 16, hit->e, n);
                     if (o) copy_lines(o + 16, hit->o, n);
                 } else {
+                    video_cache_misses++;
                     clear_lines(scr_e, n);
                     if (o) clear_lines(scr_o, n);
                     render_group(g, scr_e, o ? scr_o : 0);
@@ -401,6 +416,7 @@ static void build_sprites(void)
             e += 16 + n;
             if (o) o += 16 + n;
         }
+        nslots[spr_set][k] = (UBYTE)c->n;
         memset(e, 0, 16);                       /* end of the list */
         if (o) memset(o, 0, 16);
     }
