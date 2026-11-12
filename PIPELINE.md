@@ -40,6 +40,19 @@ Rules that come with it:
 - If milestone 3 says the stock machine cannot hold 50 Hz, say so in the report early and target the cheapest
   upgrade explicitly. Don't spend days on the stock machine.
 
-## Part B: backlog for this port
+## Part B: backlog for this port (Rescue Rangers)
 
-(Fill in after the load measurement and the first profile. The last port's backlog is in history/llb/PIPELINE.md.)
+Status: see REPORT.txt. Busiest passages of the attract demo on 4 MB fast RAM: logic ~24k colour clocks a tick,
+display ~24k a frame (sprite grouping ~6.6k, drawing new shapes ~6.4k), 71k available. The late frames left are
+level-start screen builds (the picture is off) and short catch-up runs in the busiest passages.
+
+| Priority | Item | Expected gain | Effort | How to know it worked |
+| --- | --- | --- | --- | --- |
+| 1 | Sprite grouping, channel assignment and signatures in assembly (`build_groups`, `assign`, `group_sig`) | -4k per frame | medium | `video.txt` grouping figure (`-DVP_LO=1270 -DVP_HI=1335`); `tools/vhost.c` pictures identical |
+| 2 | Draw only the used width of a new sprite shape (most groups are 16-32 px wide, the lists are 64) | -2-3k per frame when shapes change | medium | `video.txt` drawing figure |
+| 3 | A native coroutine per 6502 task (switch C stacks at TXS on a saved task S): no unwinding to the top level and no hashed dispatch at every task switch | -1-2k per tick | medium | `_dispatch`/`_unwind` share in `tools/prof.py` |
+| 4 | Hand-written collision helper `F7_eb3b` and the object loop `F5_802f` head; then re-profile | -1k per tick each | medium | `ticktime.bin` in the busy window; `tools/test68k.sh` both inputs |
+| 5 | Screen builds: keep the last picture (or black) and build the new screen over several frames without counting them late (needs a kit-side notion of "picture off") | the start-up and level-start late frames | small, kit question | `late` in `bench.txt` |
+| 6 | Measure a 68030 accelerator (FS-UAE accelerator options) and report it | the honest "cheapest upgrade" number | small | a third bench line in REPORT.txt |
+| 7 | Show sprites in the 32-pixel borders / narrow the display window | cosmetic | needs kit support | screenshot |
+| 8 | Listen to the sound on the emulator with audio; play-test with a person | quality | small | by ear; a written note |

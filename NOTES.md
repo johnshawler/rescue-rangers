@@ -1,3 +1,12 @@
 # Notes: where the brief was unclear, wrong or missing something
 
 (Earlier ports: history/*/NOTES.md. Add one line for every new place.)
+
+- What I was given is a binary NES ROM, as in the first port; I took the 6502 row of Step 1 (translate once on the host) for the same reasons (history/llb/NOTES.md, first two lines).
+- The brief, the playbook and the tools all assumed a 60 Hz NTSC NES. This ROM is the European release: an iNES 2.0 header with byte 12 = 1 marks it as PAL (50 Hz, 1,662,607 Hz CPU, 312 lines). Nothing in the brief says to check; the reference NES (tools/nesref) had only NTSC timing and the sound model only the NTSC clock (both now read/configurable). For a PAL game TICKS_PER_SECOND is 50 and the 60 Hz section of Step 1 does not apply.
+- The brief's frame model ("one game_tick") and the playbook's ("NMI + main thread until it waits") assume one main thread. This game runs a cooperative task scheduler: four tasks, each with its own part of the stack page, switched with TXS. Its idle loop writes RAM on every pass, so the static wait-loop detection rejects it. Neither document covers this; tools/games/rr.py now names the wait (WAITS) and the scheduler (SCHEDULER).
+- The brief's "port.sh prints PASS" gate cannot be met by a translated NES game whose screen changes are drawn by the game over several NES frames with the picture off: the kit's bench counts each such redraw as late frames and a worst frame of several hundred percent, even when gameplay holds 50 Hz.
+- The brief says to measure in FS-UAE only. FS-UAE runs are 2-3 minutes each; a host-side run of the Amiga's own 68k code (amitools' vamos, tools/test68k.sh) checks the translation tick by tick in seconds and catches crashes with an instruction trace. The brief could mention it: it found three latent back-end bugs the first port never hit.
+- The kit has no way to narrow the display window, so the 32-pixel side borders of the 256-pixel NES picture remain. Columns that scroll out of the NES picture keep their content there (the left border shows a little more of the level; the right one is blank). Sprites cannot appear in the borders.
+- The user supplied a Kickstart 3.1 ROM image. tools/bench.sh boots the free AROS ROM and the brief says not to depend on a Commodore ROM, so it was not used; no run under the real Kickstart was made.
+- `tools/debug_run.sh` and `tools/shot_at.sh` had the previous game's program name built in; they now use NAME from port.conf.

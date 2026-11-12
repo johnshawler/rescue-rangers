@@ -1,6 +1,22 @@
 import random, sys
 # mkin.py mode frames seed: mode 1p | watch
 mode, n, seed = sys.argv[1], int(sys.argv[2]), int(sys.argv[3]); r = random.Random(seed)
+if mode == 'rrplay':    # the same buttons as src/bench_play.h (BENCH_PLAY), for tools/nesref traces
+    names = {1: 'RIGHT', 2: 'LEFT', 4: 'DOWN', 8: 'UP', 16: 'A', 32: 'B', 64: 'START', 128: 'SELECT'}
+    pick = [1, 1 | 16, 1, 32, 2, 8, 4, 4 | 32, 16, 1 | 32, 2 | 16, 0]
+    def bp(t):
+        if 320 <= t <= 325 or 450 <= t <= 455: return 64
+        if 500 <= t < 900: return 16 if t % 20 < 3 else 0
+        if t < 950: return 0
+        r = ((t // 24) * 1103515245 + 12345) & 0xffffffff
+        return pick[(r >> 16) % 12]
+    out, t = [], 0
+    while t < n:
+        b, u = bp(t), t
+        while u + 1 < n and bp(u + 1) == b: u += 1
+        if b: out.append('%d %d %s' % (t, u, ' '.join(v for k, v in sorted(names.items()) if b & k)))
+        t = u + 1
+    print('\n'.join(out)); sys.exit(0)
 if mode == 'rr':        # Rescue Rangers: start a 1-player game, then mostly run right and jump, some throws
     out, f = ['320 325 START', '450 455 START'] + ['%d %d %s' % (k, k + 3, 'A') for k in range(500, 900, 20)], 950
     while f < n:

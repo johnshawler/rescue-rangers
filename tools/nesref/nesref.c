@@ -343,7 +343,7 @@ static void dump(const char *dir, int f)
 static void run_cycles(long long n) { long long end = cycles + n; while (cycles < end) step(); }
 
 typedef struct { int a, b; uint8_t bits; } In;
-static In ins[4096]; static int nin;
+static In ins[65536]; static int nin;
 static uint8_t btn(const char *s)
 {
     static const char *n[8] = { "A", "B", "SELECT", "START", "UP", "DOWN", "LEFT", "RIGHT" }; int i;
@@ -362,7 +362,7 @@ int main(int argc, char **argv)
     pal_tv = (rom[7] & 0x0c) == 0x08 && (rom[12] & 3) == 1;
     if (getenv("NESREF_NTSC")) pal_tv = 0;
     for (i = 3; i < argc; i++) {
-        if (!strcmp(argv[i], "-i")) { FILE *g = fopen(argv[++i], "r"); char l[256]; while (g && fgets(l, sizeof l, g)) { char *p, *tok; In in; if (sscanf(l, "%d %d", &in.a, &in.b) != 2) continue; in.bits = 0; p = l; strtol(p, &p, 10); strtol(p, &p, 10); for (tok = strtok(p, " \t\r\n+"); tok; tok = strtok(0, " \t\r\n+")) in.bits |= btn(tok); ins[nin++] = in; } if (g) fclose(g); }
+        if (!strcmp(argv[i], "-i")) { FILE *g = fopen(argv[++i], "r"); char l[256]; while (g && fgets(l, sizeof l, g)) { char *p, *tok; In in; if (sscanf(l, "%d %d", &in.a, &in.b) != 2) continue; in.bits = 0; p = l; strtol(p, &p, 10); strtol(p, &p, 10); for (tok = strtok(p, " \t\r\n+"); tok; tok = strtok(0, " \t\r\n+")) in.bits |= btn(tok); if (nin < 65536) ins[nin++] = in; } if (g) fclose(g); }
         else if (!strcmp(argv[i], "-d")) { snprintf(dumps, sizeof dumps, ",%s,", argv[++i]); }
         else if (!strcmp(argv[i], "-o")) dir = argv[++i];
         else if (!strcmp(argv[i], "-c")) { covf = fopen(argv[++i], "w"); cov = calloc(prg_banks * 0x4000 + 0x800, 1); }

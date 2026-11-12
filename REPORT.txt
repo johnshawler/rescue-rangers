@@ -1,0 +1,46 @@
+PORT REPORT
+Game:                  Chip 'n Dale: Rescue Rangers (Capcom 1990, NES, European PAL release, MMC1, 50 Hz)
+Class and route:       Binary 6502 code -> "Assembly or disassembly for a Z80, 6502 or 6809 machine": translated once on
+                       the host (tools/recomp.py) to C (host test) and to 68020 assembly (Amiga), entry points found by
+                       tracing the ROM in a reference NES (tools/nesref, PAL timing). The game's task scheduler is named
+                       in tools/games/rr.py. PPU, mapper and controller replaced by plain-C state (src/nes.c) and an
+                       AGA display (src/video.c). The user asked for this ROM to be ported.
+Display:               planes=4 scroll=1 fetch=0 buffers=1 sprites used=7 (3 attached 64-pixel pairs + sprite 6,
+                       reused down the screen) colours=32 (16 background + 16 sprite = the NES's 25 on screen)
+Busiest moment:        attract demo, ticks ~1270-1330: both players carrying crates, the mechanical dog, apple, crates,
+                       status bar: 59 of the 64 NES sprites, scrolling. Not a Step 2 sum: measured on 4 MB fast RAM
+                       (debug build), game logic ~24,500 colour clocks a tick and display ~24,400 a frame, of 71,051.
+Cut from the original: sprite-behind-background priority (sprites always in front); the 32-pixel side borders keep
+                       level columns that scrolled out of the NES picture (left) or stay blank (right), and sprites do
+                       not appear there; very high NES notes are clamped to Paula's fastest rate; sprite clusters that
+                       find no free hardware sprite are dropped (53 in 3000 frames on the host harness).
+                       Sound is in: the NES APU (2 pulse, triangle, noise; the game uses no DMC) modelled on Paula
+                       with the PAL clock.
+Stock A1200 bench:     frames=2188 late=817 worst_cck=853338 avg_cck=55761 budget_cck=71051 worst_pct=1201 avg_pct=78 display_hz=50 shown_fps=36.4
+                       ticks=3000 checksum=26d72061  (FS-UAE 3.1.66, tools/port.sh, AROS ROM)
+With 4 MB fast RAM:    frames=2947 late=53 worst_cck=499284 avg_cck=28848 budget_cck=71051 worst_pct=702 avg_pct=40 display_hz=50 shown_fps=49.1
+                       ticks=3000 checksum=26d72061  (tools/port.sh fast)
+Host checksum:         26d72061 after 3000 ticks  equal
+                       Also checked: the 68k translation equals the C one after every tick for 20,000 ticks of the bench
+                       and 8,000 ticks of scripted play (tools/test68k.sh, under vamos), and the C translation equals an
+                       instruction-by-instruction interpreter (tools/nesref/verify.c) on NES RAM after every tick for
+                       20,000 and 8,000 ticks.
+Frame rate claim:      36.4 fps shown on the stock A1200, 49.1 fps with 4 MB fast RAM; logic at 50 ticks a second (one
+                       PAL NES frame per tick; game time follows the clock). 50 Hz NOT held: tools/port.sh prints FAIL
+                       on both. On 4 MB the late frames are the start-up and level-start screen builds (the game draws
+                       its new screen over several frames with the picture off; the worst frame, 702%, is one of these)
+                       and short catch-up runs in the busiest passages. On the stock machine the logic alone is about
+                       35-45k colour clocks a tick in gameplay: 50 Hz there is out of reach by translation, as the load
+                       measurement said before any code was written.
+                       Cheapest upgrade: 4 MB fast RAM (49.1 fps measured). A 68030 accelerator: not measured.
+Not done, not tested:  real A1200 hardware; a Commodore Kickstart ROM (the user supplied Kickstart 3.1; it was not used:
+                       the kit's bench boots the AROS ROM); NTSC machines; the sound by ear (checked as a WAV from
+                       tools/shost.c and as register activity, not listened to); interactive play by a person (the
+                       controls are wired as in the first port and the scripted-play input reaches gameplay, but no
+                       one has played it); any level but the first (neither scripted input gets further); CI (the ROM
+                       cannot be committed to this public repository).
+How to run:            put the ROM at original/rr.nes (see original/README.md for the file and its SHA-1), run
+                       tools/make_assets.sh, then tools/port.sh (or tools/build.sh with the SOURCES line of
+                       port.conf). Copy dist/rr to the Amiga and run "rr" from a Shell ("rr bench 3000" for the proof
+                       run). Joystick in port 2: stick = pad, fire = A (jump), second fire = B (pick up / throw).
+                       Keys: cursor keys = pad, X = A, Z or Alt = B, Space = Select, Return/Enter = Start, Esc = quit.
