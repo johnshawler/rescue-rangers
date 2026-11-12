@@ -21,11 +21,19 @@
 extern struct Custom paula;
 #endif
 #define PAULA_CLOCK 3546895UL           /* PAL */
+#ifdef NES_PAL                          /* a PAL NES (port.conf CFLAGS -DNES_PAL): slower CPU, its own noise periods */
+#define NES_CLOCK   1662607UL
+#else
 #define NES_CLOCK   1789773UL
+#endif
 #define NOISE_LEN   4096                /* bytes of the long noise sequence */
 
 static const UBYTE len_tab[32] = { 10,254,20,2,40,4,80,6,160,8,60,10,14,12,26,14,12,16,24,18,48,20,96,22,192,24,72,26,16,28,32,30 };
+#ifdef NES_PAL
+static const UWORD noise_per[16] = { 4,8,14,30,60,88,118,148,188,236,354,472,708,944,1890,3778 };
+#else
 static const UWORD noise_per[16] = { 4,8,16,32,64,96,128,160,202,254,380,508,762,1016,2034,4068 };
+#endif
 static const UBYTE duty_seq[4] = { 0x40, 0x60, 0x78, 0x9f };   /* NES pulse duty steps, bit 7 = first step */
 
 static BYTE *wave_pulse[4];             /* 8 samples each, chip RAM */

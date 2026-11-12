@@ -57,6 +57,8 @@ reset = prg[FIXED * 0x4000 + 0x3ffc] | prg[FIXED * 0x4000 + 0x3ffd] << 8
 nmi = prg[FIXED * 0x4000 + 0x3ffa] | prg[FIXED * 0x4000 + 0x3ffb] << 8
 irq = prg[FIXED * 0x4000 + 0x3ffe] | prg[FIXED * 0x4000 + 0x3fff] << 8
 entries |= {(FIXED, reset), (FIXED, nmi), (FIXED, irq)}
+SPLIT = set(getattr(game, 'SPLIT', ()))        # (bank, address): start a function of its own there (for an HLE)
+entries |= SPLIT
 for fn in sys.argv[3:]:
     for line in open(fn):
         p = line.split()
@@ -114,6 +116,7 @@ def body(ctx, entry, stop_at_entries):
         a, prev = work.pop()
         if a in seen: continue
         if a < 0x8000 or (ctx == FIXED and a < 0xc000): continue     # RAM, or the unknown bank: dispatched at run time
+        if stop_at_entries and a != entry and (ctx_of(ctx, a), a) in SPLIT: continue   # its own function: a tail call
         seen[a] = True
         d = insn(ctx, a)
         if not d: continue

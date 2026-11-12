@@ -101,3 +101,97 @@ HLE[(7, 0xc162)] = """
 .c4 moveq #0,d1
     move.b #$ff,d1
 """
+
+# $8193 (bank 5): the metasprite emission loop at the end of the object routine $802F. One pass per NES sprite:
+# tile from ($02),Y, y and x from $12/$13 plus the signed offsets at ($05),Y (a sprite whose sum leaves 0..255 is
+# hidden: y = $F8), attributes ($02),Y ^ $10 | $11, into OAM at $0200 + $97, $97 += 4; $04 counts down.
+# A quarter of all 6502 instructions in busy scenes. Split off as its own function so it can be hand-written.
+SPLIT = {(5, 0x8193)}
+HLE[(5, 0x8193)] = """
+    moveq #0,d1
+    move.b $97-$80(a5),d1
+    beq .x0
+    moveq #0,d7
+    move.w $02-$80(a5),d7
+    rol.w #8,d7
+    cmp.w #$c000,d7
+    bcc.s .p1
+    cmp.w #$8000,d7
+    bcs .orig
+    cmp.w #$bf00,d7
+    bcc .orig
+    lea -$8000(a3),a0
+    bra.s .p2
+.p1 cmp.w #$ff00,d7
+    bcc .orig
+    lea -$c000(a4),a0
+.p2 adda.l d7,a0
+    move.w $05-$80(a5),d7
+    rol.w #8,d7
+    cmp.w #$c000,d7
+    bcc.s .p3
+    cmp.w #$8000,d7
+    bcs .orig
+    cmp.w #$bf00,d7
+    bcc .orig
+    lea -$8000(a3),a1
+    bra.s .p4
+.p3 cmp.w #$ff00,d7
+    bcc .orig
+    lea -$c000(a4),a1
+.p4 adda.l d7,a1
+.L  addq.b #1,d2
+    move.b (a0,d2.w),($181,a5,d1.w)
+    moveq #0,d3
+    move.b $12-$80(a5),d3
+    move.b (a1,d2.w),d4
+    move.b d3,d0
+    add.b d4,d0
+    move.b d0,($180,a5,d1.w)
+    move.b d4,d6
+    ext.w d6
+    add.w d3,d6
+    cmp.w #$ff,d6
+    bhi.s .off
+    addq.b #1,d2
+    move.b (a0,d2.w),d0
+    move.b $10-$80(a5),d6
+    eor.b d6,d0
+    or.b $11-$80(a5),d0
+    move.b d0,($182,a5,d1.w)
+    moveq #0,d3
+    move.b $13-$80(a5),d3
+    move.b (a1,d2.w),d4
+    move.b d3,d0
+    add.b d4,d0
+    move.b d0,($183,a5,d1.w)
+    move.b d4,d6
+    ext.w d6
+    add.w d3,d6
+    cmp.w #$ff,d6
+    bhi.s .off2
+    moveq #0,d7
+    addq.b #4,d1
+    move.b d1,$97-$80(a5)
+    beq.s .xa
+.dec subq.b #1,$04-$80(a5)
+    bpl .L
+    move.b d3,d0
+    add.b d4,d0
+    svs d5
+    tst.b d7
+    beq.s .b1
+    move.b #$f8,d0
+.b1 move.b #$ff,$04-$80(a5)
+    bra.s .x0
+.off addq.b #1,d2
+.off2 move.b #$f8,($180,a5,d1.w)
+    moveq #1,d7
+    bra.s .dec
+.xa move.b d3,d0
+    add.b d4,d0
+    svs d5
+    moveq #0,d1
+.x0
+"""
+HLE_FALLBACK.add((5, 0x8193))

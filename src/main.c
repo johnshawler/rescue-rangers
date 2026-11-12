@@ -26,6 +26,10 @@
 #define display video_display          /* src/video.c: 4 planes, scrolling, 64-pixel sprites */
 static ULONG palette[48];
 #ifdef LOGIC_TRACE
+#ifndef VP_LO                           /* debug: the tick range the display timers cover */
+#define VP_LO 2000
+#define VP_HI 2500
+#endif
 uint32_t video_time_sum, video_time_max, video_calls;
 #endif               /* all black until the game sets its colours */
 
@@ -83,7 +87,7 @@ static void game_draw(void)
     disp_begin();
 #ifdef LOGIC_TRACE
     {   extern uint32_t video_time_sum, video_time_max, video_calls; ULONG t0 = sys_now(), dt;
-        video_frame(); dt = sys_now() - t0; if (logic_frames >= 2000 && logic_frames < 2500) { video_time_sum += dt; video_calls++; } if (dt > video_time_max) video_time_max = dt; }
+        video_frame(); dt = sys_now() - t0; if (logic_frames >= VP_LO && logic_frames < VP_HI) { video_time_sum += dt; video_calls++; } if (dt > video_time_max) video_time_max = dt; }
 #else
     video_frame();
 #endif

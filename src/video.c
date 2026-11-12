@@ -36,9 +36,13 @@
 #endif
 
 #ifdef LOGIC_TRACE
+#ifndef VP_LO                           /* debug: the tick range the display timers cover */
+#define VP_LO 2000
+#define VP_HI 2500
+#endif
 ULONG vprof[6], vtiles;                 /* debug: colour clocks in cell redraws, streaming, sprites; tiles drawn */
 extern uint32_t logic_frames;
-#define VP(i, x) do { ULONG t0_ = sys_now(); x; if (logic_frames >= 2000 && logic_frames < 2500) vprof[i] += sys_now() - t0_; } while (0)
+#define VP(i, x) do { ULONG t0_ = sys_now(); x; if (logic_frames >= VP_LO && logic_frames < VP_HI) vprof[i] += sys_now() - t0_; } while (0)
 #else
 #define VP(i, x) do { x; } while (0)
 #endif

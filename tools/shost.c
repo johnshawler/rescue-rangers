@@ -23,7 +23,11 @@ int main(int argc, char **argv)
     w = fopen(argv[2], "wb"); fseek(w, 44, SEEK_SET);
     game_init(); sound_load(); sound_start();
     for (t = 0; t < n; ) {
+#ifdef NES_PAL
+        int k = 1;                                              /* a PAL game: one tick a frame */
+#else
         int k = (frame % 5 == 4) ? 2 : 1;                       /* 60 ticks in 50 frames */
+#endif
         while (k-- && t < n) { game_tick(game_bench_input(t)); t++; }
         sound_frame(); frame++;
         if (getenv("STATS") && frame % 50 == 0) printf("%3us vol %2d %2d %2d %2d per %4d %4d %4d %4d\n", frame / 50, paula.aud[0].ac_vol, paula.aud[1].ac_vol, paula.aud[2].ac_vol, paula.aud[3].ac_vol, paula.aud[0].ac_per, paula.aud[1].ac_per, paula.aud[2].ac_per, paula.aud[3].ac_per);
