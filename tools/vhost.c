@@ -82,6 +82,9 @@ int main(int argc, char **argv)
         snprintf(key, sizeof key, ",%u,", t + 1);
         if (strstr(list, key)) { snprintf(name, sizeof name, "vhost_%05u.ppm", t + 1); shot(name); }
     }
-    { extern ULONG video_cache_hits, video_cache_misses, video_slot_hits; printf("sprite clusters dropped: %d, segments in place %lu, from the cache %lu, drawn %lu\n", video_sprites_dropped, (unsigned long)video_slot_hits, (unsigned long)video_cache_hits, (unsigned long)video_cache_misses); }
+#ifdef VHOST_STATS
+    { extern int seen_hit[4]; printf("drawn shapes seen among the last 16/32/64/128 drawn: %d %d %d %d\n", seen_hit[0], seen_hit[1], seen_hit[2], seen_hit[3]); }
+#endif
+    { extern ULONG video_cache_hits, video_cache_misses, video_slot_hits, video_pool_hits; printf("sprite clusters dropped: %d, segments in place %lu, from the cache %lu, not in the last frame %lu (of which from the shape pool %lu)\n", video_sprites_dropped, (unsigned long)video_slot_hits, (unsigned long)video_cache_hits, (unsigned long)video_cache_misses, (unsigned long)video_pool_hits); }
     return 0;
 }

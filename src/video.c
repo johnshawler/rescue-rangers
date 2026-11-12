@@ -36,7 +36,7 @@
 #endif
 
 #ifdef LOGIC_TRACE
-ULONG vprof[4], vtiles;                 /* debug: colour clocks in cell redraws, streaming, sprites; tiles drawn */
+ULONG vprof[6], vtiles;                 /* debug: colour clocks in cell redraws, streaming, sprites; tiles drawn */
 extern uint32_t logic_frames;
 #define VP(i, x) do { ULONG t0_ = sys_now(); x; if (logic_frames >= 2000 && logic_frames < 2500) vprof[i] += sys_now() - t0_; } while (0)
 #else
@@ -223,8 +223,10 @@ static int redraw_cell(UWORD i)
 /* ---------------------------------------------------------------- sprites */
 #define NSEG    24
 #define MAXIN   64
-typedef struct { WORD x0, x1, y0, y1; UBYTE n, pal3only; UBYTE idx[MAXIN]; } Group;
+/* A group's NES sprites are a list through spr_next[], highest OAM index first (lower numbers end on top). */
+typedef struct { WORD x0, x1, y0, y1; UBYTE n, pal3only, head, tail; } Group;
 static Group grp[64];
+static UBYTE spr_next[64];
 static int ngrp;
 typedef struct { Group *seg[NSEG]; int n; } Chan;
 static Chan chan[4];                    /* 0..2: attached pairs (sprites 0/1, 2/3, 4/5), 3: sprite 6 */
@@ -236,29 +238,27 @@ ULONG video_cache_hits, video_cache_misses;   /* sprite segments copied / drawn 
 
 static void build_groups(void)
 {
-    int i, j, k;
+    int i, j;
+    const UBYTE *o = nes_oam;
+    Group *g = 0;
     ngrp = 0;
-    for (i = 0; i < 64; i++) {
-        UBYTE y = nes_oam[i * 4], x = nes_oam[i * 4 + 3];
-        WORD sy = (WORD)y + 1;
-        if (y >= 0xef) continue;
-        for (j = ngrp > 1 ? ngrp - 1 : 0; j < ngrp; j++) {   /* a metasprite's sprites come together in OAM */
-            Group *g = &grp[j];
+    for (i = 0; i < 64; i++, o += 4) {
+        WORD sy = (WORD)o[0] + 1, x = o[3];
+        if (o[0] >= 0xef) continue;
+        if (g) {                                    /* a metasprite's sprites come together in OAM */
             WORD nx0 = x < g->x0 ? x : g->x0, nx1 = x + 8 > g->x1 ? x + 8 : g->x1;
-            if (nx1 - nx0 > SPR_W || g->n >= MAXIN) continue;
-            if (sy > g->y1 + 1 || sy + 8 < g->y0 - 1 || x > g->x1 + 1 || x + 8 < g->x0 - 1) continue;
-            g->x0 = nx0; g->x1 = nx1;
-            if (sy < g->y0) g->y0 = sy;
-            if (sy + 8 > g->y1) g->y1 = sy + 8;
-            g->idx[g->n++] = (UBYTE)i;
-            if ((nes_oam[i * 4 + 2] & 3) != 3) g->pal3only = 0;
-            break;
+            if (nx1 - nx0 <= SPR_W && g->n < MAXIN && sy <= g->y1 + 1 && sy + 8 >= g->y0 - 1 && x <= g->x1 + 1 && x + 8 >= g->x0 - 1) {
+                g->x0 = nx0; g->x1 = nx1;
+                if (sy < g->y0) g->y0 = sy;
+                if (sy + 8 > g->y1) g->y1 = (WORD)(sy + 8);
+                spr_next[i] = g->head; g->head = (UBYTE)i; g->n++;
+                if ((o[2] & 3) != 3) g->pal3only = 0;
+                continue;
+            }
         }
-        if (j >= ngrp) {
-            Group *g = &grp[ngrp++];
-            g->x0 = x; g->x1 = x + 8; g->y0 = sy; g->y1 = sy + 8; g->n = 1; g->idx[0] = (UBYTE)i;
-            g->pal3only = (nes_oam[i * 4 + 2] & 3) == 3;
-        }
+        g = &grp[ngrp++];
+        g->x0 = x; g->x1 = (WORD)(x + 8); g->y0 = sy; g->y1 = (WORD)(sy + 8); g->n = 1; g->head = g->tail = (UBYTE)i;
+        g->pal3only = (o[2] & 3) == 3;
     }
     /* merge groups that touch, while they fit */
     for (i = 0; i < ngrp; i++)
@@ -270,7 +270,7 @@ static void build_groups(void)
             a->x0 = nx0; a->x1 = nx1;
             if (b->y0 < a->y0) a->y0 = b->y0;
             if (b->y1 > a->y1) a->y1 = b->y1;
-            for (k = 0; k < b->n; k++) a->idx[a->n++] = b->idx[k];
+            spr_next[b->tail] = a->head; a->head = b->head; a->n += b->n;   /* b's (higher) indices first */
             a->pal3only &= b->pal3only;
             grp[j] = grp[--ngrp]; j--;              /* look at the group moved into slot j */
         }
@@ -307,8 +307,8 @@ static void assign(void)
 static void render_group(Group *g, UBYTE *e, UBYTE *o)
 {
     int k;
-    for (k = g->n - 1; k >= 0; k--) {           /* highest OAM index first: lower numbers end on top */
-        int i = g->idx[k];
+    int i;
+    for (k = g->n, i = g->head; k > 0; k--, i = spr_next[i]) {     /* highest OAM index first */
         UBYTE tile = nes_oam[i * 4 + 1], at = nes_oam[i * 4 + 2];
         int dx = nes_oam[i * 4 + 3] - g->x0, dy = nes_oam[i * 4] + 1 - g->y0;
         int upper = split_on && (int)nes_oam[i * 4] + 1 <= split_line;      /* sprites above the split: upper tile set */
@@ -341,12 +341,12 @@ static ULONG group_sig(Group *g, int with_o)
     ULONG h = (ULONG)g->n * 0x9e3779b1UL ^ (ULONG)(g->y1 - g->y0) ^ ((ULONG)with_o << 31)
             ^ ((ULONG)mmc_chr0 << 8) ^ ((ULONG)mmc_chr1 << 16) ^ ((ULONG)(ppu_ctrl & 0x08) << 20);   /* the tile set */
     int k;
-    for (k = 0; k < g->n; k++) {
-        int i = g->idx[k];
+    int i;
+    for (k = 0, i = g->head; k < g->n; k++, i = spr_next[i]) {
         int upper = split_on && (int)nes_oam[i * 4] + 1 <= split_line;
         ULONG v = ((ULONG)nes_oam[i * 4 + 1] << 24) | ((ULONG)nes_oam[i * 4 + 2] << 16)
                 | ((ULONG)(UBYTE)(nes_oam[i * 4 + 3] - g->x0) << 8) | (UBYTE)(nes_oam[i * 4] + 1 - g->y0);
-        h = (h ^ v ^ (ULONG)upper) * 16777619UL + (ULONG)k;
+        h = ((h << 7) | (h >> 25)) ^ v ^ (ULONG)upper ^ ((ULONG)k << 13);
     }
     return h;
 }
@@ -363,6 +363,33 @@ typedef struct { ULONG sig; UWORD n, off; } Slot;
 static Slot slots[2][4][NSEG];
 static UBYTE nslots[2][4];
 ULONG video_slot_hits;
+
+/* Shapes drawn recently, kept outside the sprite lists (fast RAM when there is any): animation frames come back,
+   and copying one is cheaper than clearing and drawing it again. A simple arena: when it is full, start over. */
+#define POOL_BYTES 49152
+#define POOL_N     64
+typedef struct { ULONG sig; UWORD n; UBYTE *e, *o; } Pooled;
+static Pooled pool[POOL_N];
+static int npool;
+static UBYTE *pool_mem; static ULONG pool_used;
+ULONG video_pool_hits;
+static Pooled *pool_find(ULONG sig, int n)
+{
+    int j;
+    for (j = 0; j < npool; j++) if (pool[j].sig == sig && pool[j].n == n) return &pool[j];
+    return 0;
+}
+static void pool_add(ULONG sig, int n, const UBYTE *e, const UBYTE *o)
+{
+    ULONG need = (ULONG)n * (o ? 2 : 1);
+    Pooled *p;
+    if (!pool_mem || need > POOL_BYTES) return;
+    if (pool_used + need > POOL_BYTES || npool == POOL_N) { pool_used = 0; npool = 0; }
+    p = &pool[npool++];
+    p->sig = sig; p->n = (UWORD)n; p->e = pool_mem + pool_used; pool_used += (ULONG)n;
+    copy_lines(p->e, e, n);
+    if (o) { p->o = pool_mem + pool_used; pool_used += (ULONG)n; copy_lines(p->o, o, n); } else p->o = 0;
+}
 
 static void build_sprites(void)
 {
@@ -398,15 +425,23 @@ static void build_sprites(void)
                 if (same) video_slot_hits++;
                 else if (hit) {
                     video_cache_hits++;
-                    copy_lines(e + 16, hit->e, n);
-                    if (o) copy_lines(o + 16, hit->o, n);
+                    VP(5, { copy_lines(e + 16, hit->e, n);
+                    if (o) copy_lines(o + 16, hit->o, n); });
                 } else {
                     video_cache_misses++;
-                    clear_lines(scr_e, n);
-                    if (o) clear_lines(scr_o, n);
-                    render_group(g, scr_e, o ? scr_o : 0);
-                    copy_lines(e + 16, scr_e, n);       /* chip RAM is only written, once, a long at a time */
-                    if (o) copy_lines(o + 16, scr_o, n);
+#ifdef VHOST_STATS
+                    {   extern void vhost_seen(ULONG sig); vhost_seen(sig); }
+#endif
+                    Pooled *pp = pool_find(sig, n);
+                    if (pp && (pp->o != 0) == (o != 0)) {
+                        video_pool_hits++;
+                        VP(5, { copy_lines(e + 16, pp->e, n); if (o) copy_lines(o + 16, pp->o, n); });
+                    } else VP(4, { clear_lines(scr_e, n);
+                        if (o) clear_lines(scr_o, n);
+                        render_group(g, scr_e, o ? scr_o : 0);
+                        copy_lines(e + 16, scr_e, n);       /* chip RAM is only written, once, a long at a time */
+                        if (o) copy_lines(o + 16, scr_o, n);
+                        pool_add(sig, n, scr_e, o ? scr_o : 0); });
                 }
                 if (ncache[spr_set] < 4 * NSEG) {
                     Cached *c2 = &cache[spr_set][ncache[spr_set]++];
@@ -444,6 +479,7 @@ int video_load(void)
     for (i = 0; i < 2; i++)
         for (j = 0; j < 7; j++)
             if (!(spr_mem[i][j] = sys_alloc(SPR_BYTES, MEMF_CHIP | MEMF_CLEAR))) return 0;
+    pool_mem = sys_alloc(POOL_BYTES, MEMF_ANY);         /* optional: without it every new shape is drawn */
     video_plane = 0;
     invalidate();
     return 1;
