@@ -32,6 +32,7 @@ if args[0] == '--game': gamename, args = args[1], args[2:]
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), 'games'))
 game = importlib.import_module(gamename)
 NORETURN = game.NORETURN
+FORCED_WAITS = getattr(game, 'WAITS', {})    # (bank, address of the jump back): (kind, loop start)
 sys.argv = [sys.argv[0]] + args
 
 rom = open(sys.argv[1], 'rb').read()
@@ -145,6 +146,49 @@ while True:
     if not new: break
     entries |= new
 
+# Task schedulers (game.SCHEDULER = address of the scheduler's entry in the fixed bank): a task that yields
+# leaves its native call chain behind and is later resumed by an RTS to the return address it pushed. Every
+# JSR that can reach the scheduler (directly, or through calls and tail jumps) therefore needs its return
+# point as an entry, so that the resumed task can be dispatched there.
+# The same holds for a call whose callee reaches an indirect JMP: games push a return address and JMP (zp)
+# (PHA PHA JMP (zp)), so the callee's RTS goes to the pushed address and the caller's frame is lost.
+SCHED = getattr(game, 'SCHEDULER', None)
+yield_conts = set()
+if SCHED is not None or getattr(game, 'INDIRECT_BREAKS_CHAIN', False):
+    while True:
+        yielding = set()
+        bodies = {k: body(k[0], k[1], False) for k in entries}
+        changed = True
+        while changed:
+            changed = False
+            for (ctx, e), addrs in bodies.items():
+                if (ctx, e) in yielding: continue
+                hit = False
+                for a in addrs:
+                    if ctx_of(ctx, a) == FIXED and a == SCHED: hit = True; break
+                    d = insn(ctx, a)
+                    if d and d[0] == 'JMP' and d[1] == 'ind' and getattr(game, 'INDIRECT_BREAKS_CHAIN', False): hit = True; break
+                    if d and d[0] == 'JSR':
+                        t = d[2]
+                        tc = [(FIXED, t)] if t >= 0xc000 else ([(ctx, t)] if ctx != FIXED else [(b, t) for b in range(nprg)])
+                        if any(c in yielding for c in tc): hit = True; break
+                if hit: yielding.add((ctx, e)); changed = True
+        new = set()
+        for (ctx, e) in entries:
+            for a in bodies[(ctx, e)]:
+                d = insn(ctx, a)
+                if d and d[0] == 'JSR':
+                    t = d[2]
+                    tc = [(FIXED, t)] if t >= 0xc000 else ([(ctx, t)] if ctx != FIXED else [(b, t) for b in range(nprg)])
+                    if any(c in yielding for c in tc):
+                        k = (ctx_of(ctx, a + 3), (a + 3) & 0xffff)
+                        yield_conts.add(k)
+                        if k not in entries: new.add(k)
+        if not new: break
+        entries |= new
+        dyn['all'] |= new
+    print('scheduler: %d yielding functions, %d return points made entries' % (len(yielding), len(yield_conts)))
+
 # ---------------------------------------------------------------- wait loops
 # register uses/defs of the instructions allowed in a wait loop (no memory writes, no calls, no stack)
 _UD = {'LDA': ('', 'a'), 'LDX': ('', 'x'), 'LDY': ('', 'y'), 'BIT': ('', ''), 'AND': ('a', 'a'), 'ORA': ('a', 'a'),
@@ -244,6 +288,9 @@ def gen_function(ctx, entry):
                     if d[2] <= x <= a: s0_loops.add(x); s0_found.add((ctx_of(ctx, x), x))
             elif k:
                 waits[a] = (k, d[2]); waits_found.append((ctx_of(ctx, a), a, d[2], k))
+    for (b, a), (k, lp) in FORCED_WAITS.items():
+        if a in aset and b == ctx_of(ctx, a) and lp in aset:
+            waits[a] = (k, lp); waits_found.append((b, a, lp, k))
     # also the exit-branch form of the sprite 0 wait: BIT $2002 / BMI out / BVC back
     body_lines = []
     prev = None
@@ -322,7 +369,11 @@ def gen_function(ctx, entry):
                 if arg in aset: labels.add(arg); L.append('if (%s) goto L_%04x;' % (cond, arg))
                 else: L.append('if (%s) { SAVE; return %s; }' % (cond, call_expr(ctx, a, arg)))
         elif m == 'JMP':
-            if mode == 'abs':
+            if mode == 'abs' and a in waits:
+                kind, lp = waits[a]
+                labels.add(lp)
+                L.append('SAVE; nes_wait(%s, 0x%04x); LOAD; goto L_%04x;' % ('WAIT_' + kind, lp, lp))
+            elif mode == 'abs':
                 if arg in aset: labels.add(arg); L.append('goto L_%04x;' % arg)
                 else: L.append('SAVE; return %s;' % call_expr(ctx, a, arg))
             else:

@@ -98,13 +98,7 @@ void game_tick(unsigned short in)
 unsigned short game_bench_input(unsigned int t)
 {
     /* BENCH INPUT BEGIN (per game: tools/new_port.sh resets it) */
-    if (t >= 100 && t <= 105) return IN_START;
-    if (t >= 200 && t <= 205) return IN_DOWN;
-    if (t >= 250 && t <= 255) return IN_A;
-    if (t >= 330 && t <= 335) return IN_DOWN;
-    if (t >= 360 && t <= 365) return IN_DOWN;
-    if (t >= 400 && t <= 405) return IN_A;
-    if (t >= 500 && (t & 127) < 4) return IN_A;
+    (void)t;      /* no input: the attract demo (from tick ~950) plays level 1 with both players, scrolling both ways */
     /* BENCH INPUT END */
     return 0;
 }

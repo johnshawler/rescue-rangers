@@ -274,6 +274,8 @@ def generate(g):
             if d and d[1] == 'rel' and d[2] <= a and d[2] in aset:
                 kd = wait_kind(ctx, d[2], a)
                 if kd in ('RAM', 'VBL'): waits[a] = (kd, d[2])
+        for (b, a), (kd, lp) in getattr(g['game'], 'WAITS', {}).items():   # forced by the game file
+            if a in aset and b == ctx_of(ctx, a) and lp in aset: waits[a] = (kd, lp)
         s0 = set()
         for a in addrs:
             d = f['info'][a]['d']
@@ -474,7 +476,10 @@ def generate(g):
                 keep_c = True
                 fuse = None
             elif m == 'JMP':
-                if mode == 'abs':
+                if mode == 'abs' and a in waits:
+                    kd, lp = waits[a]
+                    L += ['lea $%04x.l,a1' % lp, 'bsr _wait_%s' % kd.lower(), 'bra .L%04x' % lp]
+                elif mode == 'abs':
                     L.append(('bra %s' if arg in aset else 'jmp %s') % goto(arg, a))
                 else:
                     hi = (arg & 0xff00) | ((arg + 1) & 0xff)

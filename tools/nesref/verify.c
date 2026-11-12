@@ -107,7 +107,9 @@ static int step(void)
             for (k = 0; k < nwaits; k++) if (waits[k].br == pc0 && waits[k].bank == bank_of(pc0)) return 1 + waits[k].kind;
         }
     } break;
-    case 0x4c: PC = a; break;
+    case 0x4c: PC = a;                          /* a wait loop closed by a JMP (forced in tools/games/<game>.py) */
+        for (k = 0; k < nwaits; k++) if (waits[k].br == pc0 && waits[k].bank == bank_of(pc0)) return 1 + waits[k].kind;
+        break;
     case 0x6c: PC = (uint16_t)(rd(a) | (rd((uint16_t)((a & 0xff00) | ((a + 1) & 0xff))) << 8)); break;
     case 0x20: push((uint8_t)((PC - 1) >> 8)); push((uint8_t)(PC - 1)); PC = a; break;
     case 0x60: PC = (uint16_t)((pop() | (pop() << 8)) + 1); break;
@@ -125,13 +127,7 @@ static int step(void)
 static unsigned short bench_input(unsigned int t)      /* copy of game_bench_input() in src/logic.c */
 {
     /* BENCH INPUT BEGIN (per game: tools/new_port.sh resets it) */
-    if (t >= 100 && t <= 105) return 64;
-    if (t >= 200 && t <= 205) return 4;
-    if (t >= 250 && t <= 255) return 16;
-    if (t >= 330 && t <= 335) return 4;
-    if (t >= 360 && t <= 365) return 4;
-    if (t >= 400 && t <= 405) return 16;
-    if (t >= 500 && (t & 127) < 4) return 16;
+    (void)t;      /* no input: the attract demo (from tick ~950) plays level 1 with both players, scrolling both ways */
     /* BENCH INPUT END */
     return 0;
 }

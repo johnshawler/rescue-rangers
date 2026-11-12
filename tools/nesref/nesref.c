@@ -27,6 +27,7 @@ static int nmi_pending;
 /* PPU */
 static uint8_t ppuctrl, ppumask, ppustatus, oamaddr, rdbuf; static uint16_t v, t; static uint8_t fx, w;
 static int scanline; static uint8_t fb[240][256];
+static int pal_tv;   /* iNES 2.0 byte 12 = 1: PAL NES, 312 lines of 106.5 CPU cycles, 70 lines of vblank */
 /* input */
 static uint8_t pad, padshift, strobe;
 /* stats */
@@ -358,6 +359,8 @@ int main(int argc, char **argv)
     rom = malloc(sz); if (fread(rom, 1, sz, f) != (size_t)sz) return 2; fclose(f);
     prg_banks = rom[4]; chr_banks8 = rom[5]; prg = rom + 16; chr = prg + prg_banks * 0x4000;
     frames = atoi(argv[2]);
+    pal_tv = (rom[7] & 0x0c) == 0x08 && (rom[12] & 3) == 1;
+    if (getenv("NESREF_NTSC")) pal_tv = 0;
     for (i = 3; i < argc; i++) {
         if (!strcmp(argv[i], "-i")) { FILE *g = fopen(argv[++i], "r"); char l[256]; while (g && fgets(l, sizeof l, g)) { char *p, *tok; In in; if (sscanf(l, "%d %d", &in.a, &in.b) != 2) continue; in.bits = 0; p = l; strtol(p, &p, 10); strtol(p, &p, 10); for (tok = strtok(p, " \t\r\n+"); tok; tok = strtok(0, " \t\r\n+")) in.bits |= btn(tok); ins[nin++] = in; } if (g) fclose(g); }
         else if (!strcmp(argv[i], "-d")) { snprintf(dumps, sizeof dumps, ",%s,", argv[++i]); }
@@ -378,20 +381,20 @@ int main(int argc, char **argv)
         ppustatus &= ~0x60;
         for (y = 0; y < 240; y++) {
             scanline = y;
-            run_cycles(85);
+            run_cycles(pal_tv ? 79 : 85);
             if (ppumask & 0x18) { if (y == 0) v = t; render_line(y);
                 /* increment y */
                 if ((v & 0x7000) != 0x7000) v += 0x1000; else { int cy; v &= ~0x7000; cy = (v & 0x03e0) >> 5;
                     if (cy == 29) { cy = 0; v ^= 0x0800; } else if (cy == 31) cy = 0; else cy++; v = (v & ~0x03e0) | (cy << 5); }
                 v = (v & ~0x041f) | (t & 0x041f); }
             else memset(fb[y], pal[0], 256);
-            run_cycles(29);
+            run_cycles(pal_tv ? 27 : 29);
         }
-        scanline = 240; run_cycles(114);
+        scanline = 240; run_cycles(pal_tv ? 107 : 114);
         ppustatus |= 0x80; if (ppuctrl & 0x80) nmi_pending = 2;
-        scanline = 241; run_cycles(114 * 20);
+        scanline = 241; run_cycles(pal_tv ? 7455 : 114 * 20);
         ppustatus &= 0x1f;
-        scanline = -1; run_cycles(114);
+        scanline = -1; run_cycles(pal_tv ? 106 : 114);
         if (stats) printf("frame %d instr %ld ppuw %ld r2002 %ld ctrl %02x mask %02x mmc %02x/%02x/%02x/%02x\n", fr, frame_instr, frame_ppuw, frame_2002r, ppuctrl, ppumask, m_ctrl, m_chr0, m_chr1, m_prg);
         snprintf(key, sizeof key, ",%d,", fr);
         if (strstr(dumps, key)) dump(dir, fr);
